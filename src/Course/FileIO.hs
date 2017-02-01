@@ -74,7 +74,7 @@ the contents of c
 main ::
   IO ()
 main =
-  error "todo: Course.FileIO#main"
+  getArgs >>= run . headOr (error "no args")
 
 type FilePath =
   Chars
@@ -83,31 +83,32 @@ type FilePath =
 run ::
   Chars
   -> IO ()
-run =
-  error "todo: Course.FileIO#run"
+run p =
+  lines <$> readFile p >>= getFiles >>= printFiles
 
 getFiles ::
   List FilePath
   -> IO (List (FilePath, Chars))
-getFiles =
-  error "todo: Course.FileIO#getFiles"
+getFiles ps =
+  sequence $ getFile <$> ps
 
 getFile ::
   FilePath
   -> IO (FilePath, Chars)
-getFile =
-  error "todo: Course.FileIO#getFile"
+getFile p =
+  readFile p >>= \x -> return (p, x)
 
 printFiles ::
   List (FilePath, Chars)
   -> IO ()
-printFiles =
-  error "todo: Course.FileIO#printFiles"
+printFiles ts =
+  void $ sequence $ (\(p, cs) -> printFile p cs) <$> ts
 
 printFile ::
   FilePath
   -> Chars
   -> IO ()
-printFile =
-  error "todo: Course.FileIO#printFile"
+printFile p cs = do
+  putStrLn p
+  putStrLn cs
 
