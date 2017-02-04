@@ -26,6 +26,9 @@ import Course.Functor
 import Course.Applicative
 import Course.Monad
 
+import Course.Parser
+import Course.MoreParser
+
 -- $setup
 -- >>> :set -XOverloadedStrings
 
@@ -323,5 +326,85 @@ fromChar _ =
 dollars ::
   Chars
   -> Chars
-dollars =
-  error "todo: Course.Cheque#dollars"
+dollars cs =
+  let amount = toAmount cs
+      dl = (intersperseStr " " . reverse $ zipWith (\d i -> if d == Nil then "" else (d ++ if i == Nil then Nil else " " ++ i)) ((showDigit3 <$>) . groupDigit3 . dollar $ amount) illion)
+      ct = case cent amount of
+             Nil -> showDigit3 $ D1 Zero
+             (x :. Nil) -> showDigit3 $ D1 x
+             (x :. y :. _) -> showDigit3 $ D2 y x
+      plural d = if d /= One :. Nil then "s" else ""
+  in dl ++ " dollar" ++ (plural $ dollar amount) ++ " and " ++ ct ++ " cent" ++ (plural $ cent amount)
+
+intersperseStr :: Chars -> List Chars -> Chars
+intersperseStr _ Nil = Nil
+intersperseStr _ (x :. Nil) = x
+intersperseStr s ("" :. x' :. xs) = intersperseStr s (x' :. xs)
+intersperseStr s (x :. "" :. xs) = intersperseStr s (x :. xs)
+intersperseStr s (x :. x' :. xs) = x ++ " " ++ intersperseStr s (x' :. xs)
+
+valid :: List Char -> List Char
+valid = filter (\c -> isDigit c || c == '.')
+
+data Amount = A {
+  dollar :: List Digit,
+  cent :: List Digit
+} deriving (Show, Eq)
+
+instance Show Digit where
+  show = hlist . showDigit
+
+toAmount :: List Char -> Amount
+toAmount str =
+  let (ds, r) = break (== '.') . filter (\c -> isDigit c || c == '.') $ str
+      cs = case r of
+              Nil -> "0"
+              ('.' :. r') -> case filter (/= '.') r' of
+                               Nil -> "0"
+                               (x :. Nil) -> if x == '0' then "0" else (x :. "0")
+                               (x1 :. x2 :. _) -> if x1 == '0' then
+                                                    if x2 == '0' then "0"
+                                                    else (x2 :. Nil)
+                                                  else (x1 :. x2 :. Nil)
+              _ -> "0"
+  in A ((sequence $ fromChar <$> (reverse . (\xs -> if xs == Nil then "0" else xs) . snd . break (/= '0') $ ds)) ?? (Zero :. Nil)) ((sequence $ fromChar <$> reverse cs) ?? (Zero :. Nil))
+
+showDigit3 :: Digit3 -> List Char
+showDigit3 d3 =
+  let hyphenD h l = h ++ if l == Zero then Nil else '-' :. showDigit l in
+  case d3 of
+    D1 x -> showDigit x
+    D2 Zero x -> showDigit x
+    D2 One x -> case x of
+                  Zero -> "ten"
+                  One -> "eleven"
+                  Two -> "twelve"
+                  Three -> "thirteen"
+                  Four -> "fourteen"
+                  Five -> "fifteen"
+                  Six -> "sixteen"
+                  Seven -> "seventeen"
+                  Eight -> "eighteen"
+                  Nine -> "nineteen"
+    D2 Two x -> "twenty" `hyphenD` x
+    D2 Three x -> "thirty" `hyphenD` x
+    D2 Four x -> "forty" `hyphenD` x
+    D2 Five x -> "fifty" `hyphenD` x
+    D2 Six x -> "sixty" `hyphenD` x
+    D2 Seven x -> "seventy" `hyphenD` x
+    D2 Eight x -> "eighty" `hyphenD` x
+    D2 Nine x -> "ninety" `hyphenD` x
+    D3 Zero Zero Zero -> ""
+    D3 Zero Zero x -> showDigit3 $ D1 x
+    D3 Zero y x -> showDigit3 $ D2 y x
+    D3 z Zero Zero -> showDigit z ++ " hundred"
+    D3 z y x -> showDigit z ++ " hundred and " ++ showDigit3 (D2 y x)
+
+groupDigit3 :: List Digit -> List Digit3
+groupDigit3 cs =
+  case cs of
+    Nil -> Nil
+    (x :. Nil) -> D1 x :. Nil
+    (x :. y :. Nil) -> D2 y x :. Nil
+    (x :. y :. z :. r) -> D3 z y x :. groupDigit3 r
+
