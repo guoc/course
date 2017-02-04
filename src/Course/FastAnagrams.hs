@@ -14,8 +14,13 @@ fastAnagrams ::
   Chars
   -> Filename
   -> IO (List Chars)
-fastAnagrams =
-  error "todo: Course.FastAnagrams#fastAnagrams"
+fastAnagrams str fn =
+  (\content ->
+    let filewords = S.fromList . hlist . lines $ content
+        anags = permutations str
+    in filter (\anag -> anag `S.member` filewords) anags)
+  <$>
+  (readFile fn)
 
 newtype NoCaseString =
   NoCaseString {
